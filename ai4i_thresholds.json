@@ -1,0 +1,16 @@
+{
+  "neural_network_threshold": 0.95,
+  "random_forest_threshold": 0.31999999999999995,
+  "target": "Machine failure",
+  "excluded_columns": [
+    "UDI",
+    "Product ID",
+    "Machine failure",
+    "TWF",
+    "HDF",
+    "PWF",
+    "OSF",
+    "RNF"
+  ],
+  "seed": 42
+}
