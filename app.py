@@ -1,750 +1,321 @@
 
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
+import json
+import os
 
-# ================= PAGE CONFIG =================
+import joblib
+import numpy as np
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+import tensorflow as tf
+
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="AI Machine Failure Guardian",
+    page_title="AI4I Machine Failure Guardian",
     page_icon="⚙️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# ================= CUSTOM DESIGN =================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-:root {
-    --bg: #071426;
-    --panel: #0d2039;
-    --blue: #168bff;
-    --purple: #9333ea;
-    --text: #edf4ff;
-    --muted: #91a6c4;
-    --border: rgba(117,163,220,.17);
-}
-
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-}
-
 .stApp {
-    background: radial-gradient(ellipse at 70% 0%,
-    rgba(22,139,255,.12), transparent 38%), #071426;
-    color: var(--text);
+    background: linear-gradient(135deg, #08111f, #111b35);
+    color: #f1f5f9;
 }
-
-header[data-testid="stHeader"] {
-    background: transparent;
+[data-testid="stSidebar"] {
+    background-color: #101a30;
 }
-
-.block-container {
-    padding-top: 1.7rem;
-    padding-bottom: 3rem;
-    max-width: 1500px;
+h1, h2, h3 {
+    color: #8bbcff;
 }
-
-section[data-testid="stSidebar"] {
-    background: #08172a;
-    border-right: 1px solid var(--border);
-}
-
-section[data-testid="stSidebar"] > div {
-    padding-top: 1.5rem;
-}
-
-.brand {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    padding: 5px 0 22px;
-}
-
-.brand-icon {
-    background: linear-gradient(135deg,#168bff,#9333ea);
-    border-radius: 14px;
-    width: 46px;
-    height: 46px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-}
-
-.brand-name {
-    font-size: 15px;
-    font-weight: 800;
-    color: #f1f6ff;
-}
-
-.brand-caption {
-    font-size: 10px;
-    color: #91a6c4;
-    letter-spacing: 1px;
-    margin-top: 4px;
-}
-
-.eyebrow {
-    color: #65b4ff;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 9px;
-}
-
-.hero {
-    background: linear-gradient(115deg,#102b4c,#0d2039 60%,#1b2450);
-    border: 1px solid rgba(93,164,255,.3);
-    border-radius: 20px;
-    padding: 32px;
-    margin-bottom: 24px;
-}
-
-.hero-chip {
-    display: inline-block;
-    background: rgba(22,139,255,.13);
-    color: #80c4ff;
-    border: 1px solid rgba(22,139,255,.32);
-    border-radius: 30px;
-    padding: 7px 12px;
-    font-size: 11px;
-    margin-bottom: 17px;
-}
-
-.hero h1 {
-    color: #f3f7ff;
-    font-size: clamp(28px,3.4vw,43px);
-    font-weight: 800;
-    line-height: 1.2;
-    margin: 0 0 14px;
-}
-
-.hero p {
-    color: #a9bfdc;
-    font-size: 14px;
-    max-width: 720px;
-    line-height: 1.8;
-}
-
-.metric-card {
-    background: linear-gradient(145deg,#102847,#0b1b30);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 20px;
-    min-height: 135px;
-}
-
-.metric-icon {
-    float: right;
-    font-size: 21px;
-    background: rgba(22,139,255,.14);
-    border-radius: 10px;
-    padding: 8px;
-}
-
-.metric-label {
-    font-size: 12px;
-    color: #a2b5d0;
-    margin: 5px 0 13px;
-}
-
-.metric-value {
-    font-size: 29px;
-    color: #f5f8ff;
-    font-weight: 800;
-}
-
-.metric-note {
-    font-size: 11px;
-    color: #7e9abb;
-    margin-top: 8px;
-}
-
-.panel {
-    background: rgba(13,32,57,.92);
-    border: 1px solid var(--border);
-    border-radius: 17px;
-    padding: 22px;
-    margin-bottom: 20px;
-}
-
-.panel-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #edf4ff;
-    margin-bottom: 6px;
-}
-
-.panel-subtitle {
-    color: #8ea6c5;
-    font-size: 12px;
-    margin-bottom: 20px;
-}
-
-.info-box {
-    background: rgba(22,139,255,.08);
-    border: 1px solid rgba(22,139,255,.2);
+div[data-testid="stMetric"] {
+    background: #172540;
+    padding: 18px;
     border-radius: 12px;
-    padding: 15px;
-    color: #b9cce4;
-    font-size: 12px;
-    line-height: 1.8;
-    margin-bottom: 18px;
+    border: 1px solid #2c4168;
 }
-
-.stButton > button,
-.stFormSubmitButton > button,
-.stDownloadButton > button {
-    background: linear-gradient(100deg,#0788f9,#813df2);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-weight: 700;
-    min-height: 43px;
-}
-
-.stButton > button:hover,
-.stFormSubmitButton > button:hover {
-    box-shadow: 0 0 20px rgba(22,139,255,.3);
-    color: white;
-}
-
-div[data-baseweb="select"] > div,
-div[data-baseweb="input"] > div {
-    background-color: #102847;
-    border-color: #24466d;
-    border-radius: 9px;
-}
-
-.footer {
-    border-top: 1px solid var(--border);
-    padding-top: 20px;
-    margin-top: 35px;
-    color: #7188a8;
-    font-size: 11px;
-    text-align: center;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------- MODEL FILES ----------------
+NN_FILE = "ai4i_equipment_failure_nn.keras"
+RF_FILE = "ai4i_random_forest.joblib"
+PREPROCESSOR_FILE = "ai4i_preprocessor.joblib"
+THRESHOLDS_FILE = "ai4i_thresholds.json"
+PREDICTIONS_FILE = "ai4i_test_predictions.csv"
 
-# ================= HELPER FUNCTIONS =================
-def metric_card(icon, label, value, note):
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-icon">{icon}</div>
-        <div class="metric-label">{label}</div>
-        <div class="metric-value">{value}</div>
-        <div class="metric-note">{note}</div>
-    </div>
-    """, unsafe_allow_html=True)
+@st.cache_resource
+def load_models():
+    nn = tf.keras.models.load_model(NN_FILE)
+    rf = joblib.load(RF_FILE)
+    preprocessor = joblib.load(PREPROCESSOR_FILE)
 
+    with open(THRESHOLDS_FILE, "r") as file:
+        thresholds = json.load(file)
 
-def heading(eyebrow, title, subtitle):
-    st.markdown(f"""
-    <div class="eyebrow">{eyebrow}</div>
-    <h2 style="color:#edf4ff;margin:0 0 8px;font-size:28px">
-        {title}
-    </h2>
-    <p style="color:#91a6c4;font-size:13px;margin-bottom:24px">
-        {subtitle}
-    </p>
-    """, unsafe_allow_html=True)
+    return nn, rf, preprocessor, thresholds
 
+st.title("⚙️ AI4I Machine Failure Guardian")
+st.caption("Machine Learning for Predictive Maintenance")
+st.markdown(
+    "Predict potential machine failures using trained "
+    "Neural Network and Random Forest models."
+)
 
-def chart_style(fig, height=320):
-    fig.update_layout(
-        height=height,
-        margin=dict(l=10,r=10,t=25,b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#a9bfd8",family="Inter"),
-        legend=dict(
-            bgcolor="rgba(0,0,0,0)",
-            orientation="h",
-            y=1.12
-        ),
-        xaxis=dict(gridcolor="rgba(145,166,196,.10)"),
-        yaxis=dict(gridcolor="rgba(145,166,196,.10)")
+# ---------------- SIDEBAR ----------------
+page = st.sidebar.radio(
+    "Navigate",
+    ["Overview", "Predict Failure", "Model Performance", "About"]
+)
+
+# ---------------- OVERVIEW ----------------
+if page == "Overview":
+    st.header("Project Overview")
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Dataset Records", "10,000")
+    c2.metric("Normal Records", "9,661")
+    c3.metric("Failure Records", "339")
+
+    chart_data = pd.DataFrame({
+        "Status": ["Normal", "Failure"],
+        "Count": [9661, 339]
+    })
+
+    fig = px.pie(
+        chart_data,
+        names="Status",
+        values="Count",
+        title="AI4I Dataset: Class Distribution",
+        hole=0.45
     )
-    return fig
+    st.plotly_chart(fig, use_container_width=True)
 
-
-# ================= NAVIGATION =================
-with st.sidebar:
-    st.markdown("""
-    <div class="brand">
-        <div class="brand-icon">⚙️</div>
-        <div>
-            <div class="brand-name">AI Machine<br>Failure Guardian</div>
-            <div class="brand-caption">PREDICTIVE MAINTENANCE</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.divider()
-    st.caption("WORKSPACE")
-
-    page = st.radio(
-        "Navigation",
-        [
-            "Overview Dashboard",
-            "Predict Machine Failure",
-            "Model Performance",
-            "About Project"
-        ],
-        label_visibility="collapsed"
+    st.info(
+        "This project uses labelled AI4I 2020 data to classify "
+        "whether a machine may experience failure. It does not "
+        "predict an exact future failure time."
     )
 
-    st.divider()
-    st.markdown("**🟢 AI4I 2020 Dataset**")
-    st.caption("Neural Network + Random Forest")
-    st.caption("Deep Learning Project · 2026")
+# ---------------- PREDICTION ----------------
+elif page == "Predict Failure":
+    st.header("Machine Failure Prediction")
+    st.write("Enter the machine operating conditions.")
 
-
-# ================= DASHBOARD =================
-if page == "Overview Dashboard":
-
-    st.markdown("""
-    <div class="hero">
-        <div class="hero-chip">✦ AI-POWERED PREDICTIVE MAINTENANCE</div>
-        <h1>AI Machine Failure<br>Guardian</h1>
-        <p>
-        Intelligent machine monitoring with Machine Learning and Deep Learning.
-        Explore operating conditions, compare prediction models, and understand
-        potential equipment failure risks through an interactive dashboard.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    heading(
-        "YOUR WORKSPACE",
-        "Dashboard Overview",
-        "An overview of the AI4I 2020 predictive maintenance dataset."
-    )
-
-    st.caption("Dataset counts below are based on the AI4I 2020 dataset.")
-
-    cols = st.columns(4, gap="medium")
-
-    with cols[0]:
-        metric_card("📊","Dataset Records","10,000","Total dataset rows")
-
-    with cols[1]:
-        metric_card("🟢","Normal Records","9,661","96.61% of dataset")
-
-    with cols[2]:
-        metric_card("🔴","Failure Records","339","3.39% of dataset")
-
-    with cols[3]:
-        metric_card("🤖","ML Models","02","NN + Random Forest")
-
-    st.write("")
-
-    left, right = st.columns([1.5,1], gap="large")
-
-    with left:
-        st.markdown('<div class="panel">',unsafe_allow_html=True)
-        st.markdown(
-            '<div class="panel-title">Dataset Class Distribution</div>'
-            '<div class="panel-subtitle">Normal versus failure records</div>',
-            unsafe_allow_html=True
+    with st.form("prediction_form"):
+        machine_type = st.selectbox(
+            "Machine Type",
+            ["L", "M", "H"],
+            help="Use the same machine-type encoding as the training dataset."
         )
 
-        fig = go.Figure(data=[go.Pie(
-            labels=["Normal","Failure"],
-            values=[9661,339],
-            hole=.72,
-            marker=dict(colors=["#168bff","#9333ea"]),
-            textinfo="label+percent",
-            textfont=dict(color="white",size=12)
-        )])
+        col1, col2 = st.columns(2)
 
-        fig.update_layout(
-            height=310,
-            margin=dict(l=5,r=5,t=15,b=5),
-            paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#a9bfd8")
-        )
-
-        st.plotly_chart(
-            fig,use_container_width=True,
-            config={"displayModeBar":False}
-        )
-        st.markdown("</div>",unsafe_allow_html=True)
-
-    with right:
-        st.markdown('<div class="panel">',unsafe_allow_html=True)
-        st.markdown(
-            '<div class="panel-title">Project Workflow</div>'
-            '<div class="panel-subtitle">From machine data to prediction</div>',
-            unsafe_allow_html=True
-        )
-
-        steps = [
-            ("01","Dataset Preparation","Clean and prepare operating data."),
-            ("02","Model Training","Train NN and Random Forest models."),
-            ("03","Evaluation","Compare classification metrics."),
-            ("04","Prediction","Evaluate new machine parameters.")
-        ]
-
-        for number,title,description in steps:
-            st.markdown(f"""
-            <div style="display:flex;gap:12px;margin:20px 0">
-                <div style="min-width:35px;height:35px;border-radius:10px;
-                display:flex;align-items:center;justify-content:center;
-                background:rgba(22,139,255,.15);color:#65b4ff;
-                font-weight:800">{number}</div>
-                <div>
-                    <div style="font-weight:700;color:#edf4ff;font-size:13px">
-                    {title}</div>
-                    <div style="color:#91a6c4;font-size:11px;margin-top:5px">
-                    {description}</div>
-                </div>
-            </div>
-            """,unsafe_allow_html=True)
-
-        st.markdown("</div>",unsafe_allow_html=True)
-
-    st.markdown('<div class="panel">',unsafe_allow_html=True)
-    st.markdown(
-        '<div class="panel-title">Technology Stack</div>'
-        '<div class="panel-subtitle">Tools used in this project</div>',
-        unsafe_allow_html=True
-    )
-
-    tech_cols = st.columns(4)
-    tech = [
-        ("🧠","Neural Network","Deep Learning"),
-        ("🌳","Random Forest","Machine Learning"),
-        ("🐍","Python","Model development"),
-        ("📈","Plotly","Data visualization")
-    ]
-
-    for col,(icon,name,description) in zip(tech_cols,tech):
-        with col:
-            st.markdown(f"""
-            <div style="padding:16px;background:#102847;border-radius:12px;
-            border:1px solid rgba(117,163,220,.12)">
-                <div style="font-size:23px">{icon}</div>
-                <div style="font-size:13px;font-weight:700;color:#edf4ff;
-                margin-top:9px">{name}</div>
-                <div style="font-size:11px;color:#91a6c4;margin-top:5px">
-                {description}</div>
-            </div>
-            """,unsafe_allow_html=True)
-
-    st.markdown("</div>",unsafe_allow_html=True)
-
-
-# ================= PREDICTION PAGE =================
-elif page == "Predict Machine Failure":
-
-    heading(
-        "PREDICTIVE ANALYTICS",
-        "Predict Machine Failure",
-        "Enter operating conditions to prepare a machine assessment."
-    )
-
-    st.markdown("""
-    <div class="info-box">
-        <b>Preview mode:</b> This page currently collects machine parameters.
-        The saved Neural Network and Random Forest models have not yet been
-        connected, so no real failure prediction is made here.
-    </div>
-    """,unsafe_allow_html=True)
-
-    with st.form("machine_parameters"):
-
-        st.markdown("### ⚙️ Machine Parameters")
-        st.caption("Enter the six features required by the models.")
-
-        c1,c2 = st.columns(2,gap="large")
-
-        with c1:
-            product_type = st.selectbox(
-                "Product Type",
-                ["M","L","H"],
-                help="M = Medium, L = Low, H = High"
-            )
-
+        with col1:
             air_temp = st.number_input(
                 "Air Temperature (K)",
-                min_value=250.0,max_value=350.0,
-                value=300.0,step=.1
+                min_value=250.0, max_value=350.0,
+                value=300.0, step=0.1
             )
-
             process_temp = st.number_input(
                 "Process Temperature (K)",
-                min_value=250.0,max_value=400.0,
-                value=310.0,step=.1
+                min_value=250.0, max_value=400.0,
+                value=310.0, step=0.1
             )
-
-        with c2:
             rotational_speed = st.number_input(
                 "Rotational Speed (rpm)",
-                min_value=0,max_value=5000,
-                value=1500,step=10
+                min_value=0, max_value=10000,
+                value=1500
             )
 
+        with col2:
             torque = st.number_input(
                 "Torque (Nm)",
-                min_value=0.0,max_value=100.0,
-                value=40.0,step=.5
+                min_value=0.0, max_value=200.0,
+                value=40.0, step=0.1
             )
-
             tool_wear = st.number_input(
-                "Tool Wear (minutes)",
-                min_value=0,max_value=300,
-                value=100,step=1
+                "Tool Wear (min)",
+                min_value=0, max_value=500,
+                value=100
             )
 
         submitted = st.form_submit_button(
-            "⚡ Prepare Prediction",
+            "Predict with Both Models",
             use_container_width=True
         )
 
     if submitted:
-        st.session_state["machine_input"] = {
-            "Type":product_type,
-            "Air temperature [K]":air_temp,
-            "Process temperature [K]":process_temp,
-            "Rotational speed [rpm]":rotational_speed,
-            "Torque [Nm]":torque,
-            "Tool wear [min]":tool_wear
-        }
+        try:
+            nn, rf, preprocessor, thresholds = load_models()
 
-    if "machine_input" in st.session_state:
-        st.markdown('<div class="panel">',unsafe_allow_html=True)
-        st.markdown(
-            '<div class="panel-title">Input Summary</div>'
-            '<div class="panel-subtitle">Review your selected parameters</div>',
-            unsafe_allow_html=True
-        )
+            input_data = pd.DataFrame([{
+                "Type": machine_type,
+                "Air temperature [K]": air_temp,
+                "Process temperature [K]": process_temp,
+                "Rotational speed [rpm]": rotational_speed,
+                "Torque [Nm]": torque,
+                "Tool wear [min]": tool_wear
+            }])
 
-        summary = pd.DataFrame([st.session_state["machine_input"]])
-        st.dataframe(summary,use_container_width=True,hide_index=True)
+            # Apply the same preprocessing used during training.
+            processed = preprocessor.transform(input_data)
 
-        st.download_button(
-            "⬇️ Download Input CSV",
-            data=summary.to_csv(index=False).encode("utf-8"),
-            file_name="machine_input.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+            nn_probability = float(
+                np.asarray(nn.predict(processed, verbose=0)).reshape(-1)[0]
+            )
 
-        st.info(
-            "Inputs captured successfully. Real model predictions will be "
-            "available after connecting the trained model files."
-        )
-        st.markdown("</div>",unsafe_allow_html=True)
+            rf_probability = float(
+                rf.predict_proba(processed)[0][1]
+            )
 
+            nn_threshold = float(
+                thresholds["neural_network_threshold"]
+            )
+            rf_threshold = float(
+                thresholds["random_forest_threshold"]
+            )
 
-# ================= PERFORMANCE PAGE =================
+            nn_failure = nn_probability >= nn_threshold
+            rf_failure = rf_probability >= rf_threshold
+
+            st.subheader("Prediction Results")
+            left, right = st.columns(2)
+
+            with left:
+                st.markdown("### Neural Network")
+                st.metric(
+                    "Failure Probability",
+                    f"{nn_probability:.1%}"
+                )
+                if nn_failure:
+                    st.error("Potential Failure Detected")
+                else:
+                    st.success("Failure Not Flagged")
+
+            with right:
+                st.markdown("### Random Forest")
+                st.metric(
+                    "Failure Probability",
+                    f"{rf_probability:.1%}"
+                )
+                if rf_failure:
+                    st.error("Potential Failure Detected")
+                else:
+                    st.success("Failure Not Flagged")
+
+            st.caption(
+                f"Thresholds used: Neural Network {nn_threshold:.2f}; "
+                f"Random Forest {rf_threshold:.2f}."
+            )
+
+            st.warning(
+                "These are model predictions, not a guarantee of machine "
+                "condition. This demonstration is not a substitute for "
+                "industrial inspection or validated safety systems."
+            )
+
+            result = input_data.copy()
+            result["NN failure probability"] = nn_probability
+            result["NN flagged failure"] = bool(nn_failure)
+            result["RF failure probability"] = rf_probability
+            result["RF flagged failure"] = bool(rf_failure)
+
+            st.download_button(
+                "Download Prediction as CSV",
+                data=result.to_csv(index=False).encode("utf-8"),
+                file_name="machine_failure_prediction.csv",
+                mime="text/csv"
+            )
+
+        except Exception as error:
+            st.error(
+                "The models could not be loaded or used. "
+                "Check that all model files exist and that their "
+                "preprocessing and library versions are compatible."
+            )
+            st.code(str(error))
+
+# ---------------- PERFORMANCE ----------------
 elif page == "Model Performance":
-
-    heading(
-        "MODEL EVALUATION",
-        "Model Performance",
-        "Understand the metrics used to evaluate failure classifiers."
+    st.header("Model Performance")
+    st.write(
+        "The following evaluation results were reported for the "
+        "1500-row test set, containing 51 actual failure cases."
     )
 
-    st.markdown("""
-    <div class="info-box">
-        Performance figures on this page are illustrative design placeholders.
-        They are not your trained models' actual results. We will replace them
-        with metrics calculated from your saved test predictions.
-    </div>
-    """,unsafe_allow_html=True)
+    performance = pd.DataFrame({
+        "Metric": ["Accuracy", "Precision", "Recall", "F1 Score", "ROC-AUC"],
+        "Neural Network": [97.73, 68.09, 62.75, 65.31, 97.8],
+        "Random Forest": [97.07, 55.07, 74.51, 63.33, 97.8]
+    })
 
-    model = st.selectbox(
-        "Choose model",
-        ["Neural Network","Random Forest"]
+    st.dataframe(
+        performance.style.format({
+            "Neural Network": "{:.2f}%",
+            "Random Forest": "{:.2f}%"
+        }),
+        use_container_width=True,
+        hide_index=True
     )
 
-    cols = st.columns(4)
-    metrics = [
-        ("Accuracy","92.0%","Overall correct predictions"),
-        ("Precision","84.0%","Positive prediction quality"),
-        ("Recall","79.0%","Actual failures detected"),
-        ("F1-score","81.0%","Precision-recall balance")
-    ]
-
-    for col,(name,value,note) in zip(cols,metrics):
-        with col:
-            metric_card("📊",name,value,note)
-
-    st.write("")
-    left,right = st.columns(2,gap="large")
-
-    with left:
-        st.markdown('<div class="panel">',unsafe_allow_html=True)
-        st.markdown(
-            '<div class="panel-title">Confusion Matrix</div>'
-            '<div class="panel-subtitle">Illustrative example only</div>',
-            unsafe_allow_html=True
-        )
-
-        cm = go.Figure(data=go.Heatmap(
-            z=[[920,30],[50,100]],
-            x=["Predicted Normal","Predicted Failure"],
-            y=["Actual Normal","Actual Failure"],
-            colorscale=[
-                [0,"#102847"],
-                [.5,"#087ee1"],
-                [1,"#9333ea"]
-            ],
-            showscale=False,
-            text=[[920,30],[50,100]],
-            texttemplate="%{text}",
-            textfont={"size":18,"color":"white"}
-        ))
-
-        cm.update_layout(
-            xaxis_title="Predicted Label",
-            yaxis_title="Actual Label"
-        )
-
-        st.plotly_chart(
-            chart_style(cm),
-            use_container_width=True,
-            config={"displayModeBar":False}
-        )
-        st.markdown("</div>",unsafe_allow_html=True)
-
-    with right:
-        st.markdown('<div class="panel">',unsafe_allow_html=True)
-        st.markdown(
-            '<div class="panel-title">Metric Breakdown</div>'
-            '<div class="panel-subtitle">Illustrative example only</div>',
-            unsafe_allow_html=True
-        )
-
-        scores = pd.DataFrame({
-            "Metric":["Accuracy","Precision","Recall","F1-score"],
-            "Score":[.92,.84,.79,.81]
-        })
-
-        fig = go.Figure(go.Bar(
-            x=scores["Score"],
-            y=scores["Metric"],
-            orientation="h",
-            marker=dict(
-                color=scores["Score"],
-                colorscale=[[0,"#168bff"],[1,"#9333ea"]]
-            ),
-            text=[f"{x:.0%}" for x in scores["Score"]],
-            textposition="outside"
-        ))
-
-        fig.update_layout(
-            xaxis=dict(range=[0,1.12],tickformat=".0%"),
-            yaxis=dict(autorange="reversed")
-        )
-
-        st.plotly_chart(
-            chart_style(fig),
-            use_container_width=True,
-            config={"displayModeBar":False}
-        )
-        st.markdown("</div>",unsafe_allow_html=True)
-
-
-# ================= ABOUT PAGE =================
-elif page == "About Project":
-
-    heading(
-        "PROJECT INFORMATION",
-        "About the Project",
-        "Project objective, workflow, input parameters and limitations."
+    st.caption(
+        "ROC-AUC values are approximate. Other metrics are percentages. "
+        "These reported values should be verified against the saved "
+        "evaluation results before formal publication."
     )
 
-    st.markdown("""
-    <div class="hero">
-        <div class="hero-chip">AI4I 2020 · PREDICTIVE MAINTENANCE</div>
-        <h1>Smarter insights.<br>Better maintenance planning.</h1>
-        <p>
-        AI Machine Failure Guardian explores how machine operating data can
-        be used to classify potential equipment failures using a Neural Network
-        and a Random Forest classifier.
-        </p>
-    </div>
-    """,unsafe_allow_html=True)
+    st.markdown("### Reported failure detection")
+    c1, c2 = st.columns(2)
+    c1.metric("Neural Network", "32 / 51 failures detected")
+    c2.metric("Random Forest", "38 / 51 failures detected")
 
-    left,right = st.columns(2,gap="large")
+    st.info(
+        "Random Forest detected more failures in the reported test results, "
+        "while the Neural Network produced fewer false positives. "
+        "Performance depends on the chosen classification thresholds."
+    )
 
-    with left:
-        st.markdown('<div class="panel">',unsafe_allow_html=True)
-        st.markdown("### 🎯 Project Objective")
-
-        st.write(
-            "Build and compare a Neural Network and a Random Forest classifier "
-            "using operating parameters from the AI4I 2020 dataset."
+    if os.path.exists(PREDICTIONS_FILE):
+        st.download_button(
+            "Download Saved Test Predictions",
+            data=open(PREDICTIONS_FILE, "rb").read(),
+            file_name="ai4i_test_predictions.csv",
+            mime="text/csv"
         )
 
-        st.divider()
-        st.markdown("### 📥 Input Parameters")
-
-        for item in [
-            "Product Type (L, M, H)",
-            "Air Temperature (K)",
-            "Process Temperature (K)",
-            "Rotational Speed (rpm)",
-            "Torque (Nm)",
-            "Tool Wear (minutes)"
-        ]:
-            st.markdown(f"- {item}")
-
-        st.markdown("</div>",unsafe_allow_html=True)
-
-    with right:
-        st.markdown('<div class="panel">',unsafe_allow_html=True)
-        st.markdown("### 🧠 Project Workflow")
-
-        workflow = [
-            ("01","Data Preparation","Prepare labelled operating data."),
-            ("02","Model Training","Train both classifiers."),
-            ("03","Evaluation","Compare classification metrics."),
-            ("04","Prediction","Evaluate new machine inputs.")
-        ]
-
-        for num,title,desc in workflow:
-            st.markdown(f"""
-            <div style="display:flex;gap:12px;margin:20px 0">
-                <div style="color:#67baff;font-weight:800">{num}</div>
-                <div>
-                    <div style="color:#edf4ff;font-weight:700;font-size:13px">
-                    {title}</div>
-                    <div style="color:#91a6c4;font-size:11px;margin-top:5px">
-                    {desc}</div>
-                </div>
-            </div>
-            """,unsafe_allow_html=True)
-
-        st.markdown("</div>",unsafe_allow_html=True)
-
-    st.markdown('<div class="panel">',unsafe_allow_html=True)
-    st.markdown("### ⚠️ Limitations & Responsible Use")
+# ---------------- ABOUT ----------------
+elif page == "About":
+    st.header("About the Project")
 
     st.markdown("""
-    - This is an educational predictive-maintenance prototype.
-    - Dataset results do not guarantee performance on real industrial machines.
-    - Predictions depend on input quality and the trained model.
-    - This tool should not be the sole basis for safety-critical maintenance.
-    - Further validation is required before practical industrial deployment.
+    ### Objective
+    Develop a machine-learning application that identifies potential
+    machine failures from operating-condition data.
+
+    ### Models
+    - **Neural Network:** learns patterns from the input features.
+    - **Random Forest:** combines multiple decision trees to classify risk.
+
+    ### Input Features
+    - Machine type
+    - Air temperature
+    - Process temperature
+    - Rotational speed
+    - Torque
+    - Tool wear
+
+    ### Dataset
+    AI4I 2020 Predictive Maintenance Dataset.
+
+    ### Important Limitations
+    - Failure cases are much less common than normal cases.
+    - A missed failure can be costly, so recall matters.
+    - Model outputs are estimates, not certainty.
+    - Results have not been established as a validated industrial safety system.
     """)
-    st.markdown("</div>",unsafe_allow_html=True)
 
-
-# ================= FOOTER =================
-st.markdown("""
-<div class="footer">
-    AI MACHINE FAILURE GUARDIAN · AI4I 2020
-    <br><br>
-    Educational predictive-maintenance prototype
-</div>
-""",unsafe_allow_html=True)
+st.divider()
+st.caption(
+    "AI4I Machine Failure Guardian | Educational Deep Learning PBL Project"
+)
